@@ -1,0 +1,24 @@
+#
+# HashTaBle-in-file with overflow and sedimentation
+#
+# Relies on
+# https://opm.openresty.org/package/jprjr/luasodium/
+#
+# Use: seamagic <number of workers> <filename base>
+# Files .htb, .off, .tmp, and .log will be based on
+# /www/nginx/logs/<filename base> (see seamagic.h)
+# Sockets will be bound as
+# /run/<filename base>.N: [0; <number of workers>)
+#
+
+[Unit]
+Description=https://github.com/psvz/hashtable-in-file
+After=syslog.target
+
+[Service]
+Type=exec
+Restart=on-failure
+ExecStart=/root/hashtable-in-file/seamagic/seamagic 3 plan-man
+
+[Install]
+WantedBy=openresty.service
