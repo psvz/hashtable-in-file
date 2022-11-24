@@ -14,7 +14,7 @@ sock_routine(void *n)
   struct sockaddr_un  peer, sa = { .sun_family = AF_UNIX };
   socklen_t           addrlen;
 
-  RECORD              *rp, *rpsave, rec = { .present = 0 };
+  RECORD              *rp, rec = { .present = 0 };
   const size_t        msglen = sizeof rec.pkey + sizeof rec.sig + sizeof rec.id;
   const unsigned      mask = (1 << SEL_BIT_LENGTH % 8) - 1;
   const unsigned      rib = BUCKETSIZE / sizeof rec;
@@ -64,8 +64,7 @@ sock_routine(void *n)
     }
     //printf("\nGot selector %zu\n", len);
 
-    rp = (RECORD*) (htb + len * BUCKETSIZE);
-    rpsave = rp;
+    rp = (RECORD*) (htb_map + len * BUCKETSIZE);
 
     for (i = 0; i < rib; i++)
     {
@@ -84,9 +83,6 @@ sock_routine(void *n)
       {
         memcpy(rp, &rec, sizeof rec);
         rp->present = 1;
-
-        /* this is experimental and may otherwise rely on sysctl's vm */
-        if (msync(rpsave, BUCKETSIZE, MS_ASYNC) < 0) err(1, "msync(async)");
 
         break;
       }

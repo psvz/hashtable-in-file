@@ -49,21 +49,21 @@
 #define SOCK_PATH         "/run/"
 #define LOG_PATH          "/www/nginx/logs/"
 
-#define HTBSIZE           1UL << 40
-#define BUCKETSIZE        4096
-
 /* bucket selector is a big-endian of RECORD.sig bytes */
 #define SIG_FROM1_BYTE    11
-#define SEL_BIT_LENGTH    28
+#define SEL_BIT_LENGTH    15 //28
 
-/* throttles htb sedimentation if it takes longer than */
-#define THROTTLESEC       5
+#define BUCKETSIZE        4096
+#define HTBSIZE           ((1UL << SEL_BIT_LENGTH) * BUCKETSIZE)
+
+/* throttles htb sedimentation if it takes shorter than */
+#define THROTTLESEC       20
 
 void
 *sock_routine(void*), *log_routine(void*);
 
-extern int  offd;
-extern char *htb, sock_prefix[], htbpath[], tmppath[], logpath[];
+extern  int   offd, htbd;
+extern  char  *htb_map, sock_prefix[], htbpath[], tmppath[], logpath[];
 
 typedef struct __attribute__((__packed__))
 {

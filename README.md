@@ -17,11 +17,11 @@ Another gain in performance could result from integrating seamagic code into ngi
 
 Due to alignments of data structures with memory paging, any practical crash should not result in data corruption. On the other hand, amount of data not persisted to file-storage is controlled by Linux kernel knobs (dirty page parameters in `/proc/sys/vm`). In other words, seamagic offers some configurable amount of data that is always at risk and smooth data write-outs under kernel control. Performance is block I/O bound with whole RAM size to cache.
 
-There are two control signals. USR1 purges all data (except .log file) and HUP syncs caches to disk. The signals are not intended for use under load. They are used for flushing data in post-processing scenario.
+There are two control signals. USR1 purges all data, and HUP syncs caches to disk. The signals are not intended for use under load. They are used for flushing data in post-processing scenario.
 
 Log file is cyclically updated on the best effort basis by sedimentation of the sparse file with the hash table into a .tmp file and, atomically, renaming the latter into .log. Every line looks like
 
     uBgXBIc6v49QdygE5tp79RRnnqIScyZAd9t4hkBUhjQ= QhD6qeEvSkUiYTXX84I4pgbIQp8R9sepBaoUKScIAJGpgHtn0jIsOrad2fTqxx5SP4vI02f8RIST1aUibNcdBg== HgJabbZ6Zw7Nag6RAfIxTTcxC8r0uXGa
 where there are base64 encoded `public key`(32 bytes)`signature`(64 bytes)`GUID`(24 bytes). Base64 encoded strings are separated by a space in the log file. The same fields arrive in the same order without encoding (raw bytes) or separation (as they are fixed width fields) on the Unix socket from nginx.
 
-Seamagic relies on a couple of non-portable Linux-specific features viz., `lseek(SEEK_DATA)` and `sched_setscheduler(SCHED_IDLE)`.
+Seamagic relies on some non-portable Linux-specific features e.g., `lseek(SEEK_DATA)` and `sched_setscheduler(SCHED_IDLE)`.

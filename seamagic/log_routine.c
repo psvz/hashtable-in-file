@@ -1,6 +1,6 @@
 #include "seamagic.h"
 
-int     tmpfd, htbfd;
+int     tmpfd;
 void    *offmap;
 size_t  offlen;
 
@@ -8,7 +8,6 @@ void
 log_cleanup(void*)
 {
   close(tmpfd);
-  close(htbfd);
   munmap(offmap, offlen);
 }
 
@@ -64,7 +63,7 @@ log_routine(void*)
 {
   const struct sched_param  param = { .sched_priority = 0 };
 
-  struct timespec           tick, tock, req = { .tv_sec = THROTTLESEC };
+  struct timespec           tick, tock;
 
   size_t                    ofs;
   RECORD                    *rp;
@@ -75,23 +74,21 @@ log_routine(void*)
      
                                     != 0) err(1, "pthread_setschedparam");
 
-  if (clock_gettime(CLOCK_MONOTONIC, &tock) < 0) err(1, "clock_gettime");
-
   prctl(PR_SET_NAME, "log_routine");
-
-  if ( (htbfd = open(htbpath, O_RDONLY)) < 0) err(1, "open(htb-rdonly)");
 
   for ( ;; )
   {
-    tick.tv_sec = tock.tv_sec;
+    clock_gettime(CLOCK_MONOTONIC, &tick);
 
     if ( (tmpfd = creat(tmppath, 0644)) < 0) err(1, "creat");
 
-    if ( (ofs = lseek(htbfd, 0, SEEK_DATA)) < 0) err(1, "lseek data");
+    if ( (ofs = lseek(htbd, 0, SEEK_DATA)) < 0) err(1, "lseek data");
 
-    for ( ; ofs < HTBSIZE; ofs = lseek(htbfd, ofs, SEEK_DATA))
+    for ( ; ofs < HTBSIZE; ofs = lseek(htbd, ofs, SEEK_DATA))
     {
-      for (rp = (RECORD*) (htb + ofs); rp->present; rp++)
+      pthread_testcancel();
+
+      for (rp = (RECORD*) (htb_map + ofs); rp->present; rp++)
       {
         /* append app-specific format to tmpfd */
         dumprec(rp);
@@ -100,18 +97,29 @@ log_routine(void*)
       }
       ofs = (ofs / BUCKETSIZE + 1) * BUCKETSIZE;
     }
-    offlen = lseek(offd, 0, SEEK_CUR);
-    if ( (offmap = mmap(NULL, offlen, PROT_READ, MAP_SHARED, offd, 0)) < 0) err(1, "mmap(off)");
+    offlen = lseek(offd, 0, SEEK_END);
 
-    for (rp = offmap; (void*) rp < offmap + offlen; rp++) dumprec(rp);
+    if ( (offmap = mmap(NULL, offlen, PROT_READ, MAP_SHARED, offd, 0))
+        
+                   != MAP_FAILED)
+
+        for (rp = offmap; (void*) rp < offmap + offlen; rp++)
+                     
+            dumprec(rp);
     
     munmap(offmap, offlen);
-    close(tmpfd);
+
+    if (close(tmpfd) < 0) err(1, "close(tmp)");
 
     if (rename(tmppath, logpath) < 0) err(1, "rename");
 
     clock_gettime(CLOCK_MONOTONIC, &tock);
-    if (tock.tv_sec - tick.tv_sec < THROTTLESEC) nanosleep(&req, NULL);
+
+    if ( (tock.tv_sec -= tick.tv_sec) < THROTTLESEC)
+    {
+      tick.tv_sec = THROTTLESEC - tock.tv_sec;
+      nanosleep(&tick, NULL);
+    }
   }
 
   pthread_cleanup_pop(1);

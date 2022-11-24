@@ -1,20 +1,18 @@
 #include "seamagic.h"
 
-int       offd, num[MAX_THREADS_COUNT];
-pthread_t       tid[MAX_THREADS_COUNT];
+int       num[MAX_THREADS_COUNT], htbd, offd;
+pthread_t tid[MAX_THREADS_COUNT];
 
-char      *htb, htbpath[PATH_SIZE],
-                tmppath[PATH_SIZE],
-                offpath[PATH_SIZE],
-                logpath[PATH_SIZE],
+char      *htb_map, htbpath[PATH_SIZE],
+                    tmppath[PATH_SIZE],
+                    offpath[PATH_SIZE],
+                    logpath[PATH_SIZE],
                 sock_prefix[PATH_SIZE];
 
-void
+static inline void
 fireup(int nsock)
 {
-  int htbd;
-
-  if ( (offd = open(offpath, O_WRONLY | O_CREAT | O_APPEND, 0)) < 0) err(1, "off open");
+  if ( (offd = open(offpath, O_RDWR | O_CREAT | O_APPEND, 0)) < 0) err(1, "off open");
 
   if (lockf(offd, F_TLOCK, 0) < 0) err(1, "lockf");
 
@@ -22,11 +20,13 @@ fireup(int nsock)
 
   if (lseek(htbd, HTBSIZE, SEEK_SET) < 0) err(1, "htb lseek");
 
-  if (read(htbd, &htb, 1) == 0) if (write(htbd, "q", 1) < 0) err(1, "htb write");
+  if (read(htbd, &htb_map, 1) == 0) if (write(htbd, "q", 1) < 0) err(1, "htb write");
 
-  if ( (htb = mmap(NULL, HTBSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, htbd, 0)) < 0) err(1, "mmap");
+  if ( (htb_map = mmap(NULL, HTBSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, htbd, 0))
+      
+                  == MAP_FAILED) err(1, "mmap");
 
-  close(htbd);
+  if (madvise(htb_map, HTBSIZE, MADV_RANDOM) < 0) err(1, "madvise");
 
   for (int i = 0; i < nsock; i++)
   {
@@ -75,11 +75,11 @@ main(int argc, char **argv)
 
   if ( (errno = pthread_sigmask(SIG_BLOCK, &set, NULL)) != 0) err(1, "pthread_sigmask"); 
 
+  fireup(nsock);
+
   for ( ;; )
   {
     int i;
-
-    fireup(nsock);
 
     printf("\nReady\n");
 
@@ -87,25 +87,29 @@ main(int argc, char **argv)
     {
       case SIGHUP:
 
-          printf("Syncing data ");
+          printf("Syncing data ..");
 
           if (fsync(offd) < 0) err(1, "fsync");
-          if (msync(htb, HTBSIZE, MS_SYNC) < 0) err(1, "msync(sync)");
+          if (msync(htb_map, HTBSIZE, MS_SYNC) < 0) err(1, "msync(sync)");
 
           break;
 
       case SIGUSR1:
 
-          printf("Purging data ");
+          printf("Purging data ..");
+
+          if (unlink(htbpath) < 0) err(1, "unlink(htb)");
+          if (unlink(offpath) < 0) err(1, "unlink(off)");
 
           for (i = 0; tid[i]; i++) pthread_cancel(tid[i]);
-          for (i = 0; tid[i]; i++, tid[i] = 0) pthread_join(tid[i], NULL);
+          for (i = 0; tid[i]; tid[i++] = 0) pthread_join(tid[i], NULL);
 
-          if (munmap(htb, HTBSIZE) < 0) err(1, "munmap");
-          if (unlink(htbpath) < 0) err(1, "unlink(htb)");
+          if (munmap(htb_map, HTBSIZE) < 0) err(1, "munmap");
 
           if (close(offd) < 0) err(1, "close(offd)");
-          if (unlink(offpath) < 0) err(1, "unlink(off)");
+          if (close(htbd) < 0) err(1, "close(htbd)");
+
+          fireup(nsock);
 
           break;
     }
