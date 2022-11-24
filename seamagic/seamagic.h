@@ -51,7 +51,7 @@
 
 /* bucket selector is a big-endian of RECORD.sig bytes */
 #define SIG_FROM1_BYTE    11
-#define SEL_BIT_LENGTH    15 //28
+#define SEL_BIT_LENGTH    20 //28
 
 #define BUCKETSIZE        4096
 #define HTBSIZE           ((1UL << SEL_BIT_LENGTH) * BUCKETSIZE)
