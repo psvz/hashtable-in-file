@@ -1,0 +1,4 @@
+# linguist venv correction
+bin/**
+lib/**
+lib64/**
