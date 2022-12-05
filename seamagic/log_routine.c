@@ -5,7 +5,7 @@ void    *offmap;
 size_t  offlen;
 
 void
-log_cleanup(void*)
+log_cleanup(void *dummy)
 {
   close(tmpfd);
   munmap(offmap, offlen);
@@ -59,7 +59,7 @@ dumprec(RECORD *rp)
 }
 
 void*
-log_routine(void*)
+log_routine(void *dummy)
 {
   const struct sched_param  param = { .sched_priority = 0 };
 

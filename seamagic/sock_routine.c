@@ -96,7 +96,8 @@ sock_routine(void *n)
     if (sendto(sockfd[*(int*) n], "1", 1, 0,
 
                 (struct sockaddr*) &peer, addrlen) < 0) err(1, "sendto(1)");
-bye:
+
+bye: ;
   }
 
   pthread_cleanup_pop(1);
