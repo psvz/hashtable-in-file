@@ -13,7 +13,7 @@
 
 [Unit]
 Description=https://github.com/psvz/hashtable-in-file
-After=syslog.target
+After=local-fs.target
 
 [Service]
 Type=exec
